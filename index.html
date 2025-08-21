@@ -114,18 +114,27 @@
         import { getFirestore, collection, addDoc, query, where, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         const firebaseConfig = {
-           apiKey: "AIzaSyDVYQ-Y9MGk87JNQekyhC7ybcGzWhlvH0g",
-          authDomain: "test-vui-c44f5.firebaseapp.com",
-          projectId: "test-vui-c44f5",
-         storageBucket: "test-vui-c44f5.firebasestorage.app",
-          messagingSenderId: "812094471003",
-          appId: "1:812094471003:web:b758bd25acee9b13d3f87e",
-          measurementId: "G-1175DMJH3J"
-};
+
+          apiKey: "AIzaSyBlIoi1hfbVklz3AeacqrGQ0sT0H9hbdXU",
+
+          authDomain: "toan11-thay-ha.firebaseapp.com",
+
+          projectId: "toan11-thay-ha",
+
+          storageBucket: "toan11-thay-ha.firebasestorage.app",
+
+          messagingSenderId: "413456859402",
+
+          appId: "1:413456859402:web:a15fd6699196dbf909faf3",
+
+          measurementId: "G-94JHCQNEHY"
+
+        };        
+
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        const QUIZ_ID = "TOAN11_Thay_Ha_BN";
+        const QUIZ_ID = "TOAN11_Thay_Ha_BN_0988948882";
         const TIME_LIMIT_SECONDS = 60 * 60; 
         const ATTEMPT_LIMIT = 33;
 
