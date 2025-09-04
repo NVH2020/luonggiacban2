@@ -133,7 +133,8 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbybjJWoSpAPWgPeD1BDBF5ZT8eSGKgjwLiCS8CMWBb55mFuY4qPNJqL3_5ivcmsNCbT/exec";
+        const QUIZ_NAME = "Toán 11";
         const QUIZ_ID = "TOAN11_Thay_Ha_BN_0988948882";
         const TIME_LIMIT_SECONDS = 60 * 60; 
         const ATTEMPT_LIMIT = 33;
@@ -218,6 +219,24 @@
             }
             return shuffledQuiz;
         }
+        function stringifyAnswer(q, ans) {
+  if (ans === null || ans === undefined) return "";
+  if (q.type === "mcq") return String(ans);
+  if (q.type === "short-answer") return String(ans).trim();
+  if (q.type === "true-false") {
+    // ans là mảng boolean hoặc null → chuẩn hoá thành "D,S,D,S"
+    return ans.map(v => (v === true ? "D" : v === false ? "S" : "")).join(",");
+  }
+  return String(ans);
+}
+        // 4) HÀM MỚI: Tạo mảng answers (theo thứ tự câu 1..N)
+function buildAnswersArray(quizDataRef, userAnswersRef) {
+  const out = [];
+  for (let i = 0; i < quizDataRef.length; i++) {
+    out.push(stringifyAnswer(quizDataRef[i], userAnswersRef[i]));
+  }
+  return out;
+}
 
         startBtn.addEventListener("click", async () => {
             const studentId = document.getElementById("studentId").value.trim();
@@ -392,6 +411,82 @@
                         break;
                 }
             });
+            // 5) TRONG phần submit, SAU khi tính xong điểm và hiển thị kết quả,
+//    GIỮ nguyên addDoc Firestore của bạn, nhưng THÊM ĐOẠN fetch() dưới:
+quizForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  saveCurrentAnswer(); 
+  clearInterval(timerInterval);
+
+  const timeTakenInSeconds = Math.round((Date.now() - quizStartTime) / 1000);
+  let totalScore = 0;
+  const answersToSaveObj = {}; // bạn có rồi, vẫn dùng để lưu Firestore
+
+  quizData.forEach((q, index) => {
+    const userAnswer = userAnswers[index];
+    answersToSaveObj[`q${index + 1}`] = userAnswer;
+    if (userAnswer === null) return;
+    switch (q.type) {
+      case 'mcq':
+        if (userAnswer === q.a) totalScore += 0.25;
+        break;
+      case 'true-false':
+        let correctCount = 0;
+        q.s.forEach((st, sIndex) => { if (userAnswer[sIndex] === st.a) correctCount++; });
+        const pointsMap = [0, 0.1, 0.25, 0.5, 1];
+        totalScore += pointsMap[correctCount];
+        break;
+      case 'short-answer':
+        if (String(userAnswer).trim().toLowerCase() === String(q.a).trim().toLowerCase()) totalScore += 1;
+        break;
+    }
+  });
+
+  quizSection.classList.add("hidden");
+  resultSection.classList.remove("hidden");
+  studentNameResult.textContent = currentUser.fullname;
+  finalScore.textContent = totalScore.toFixed(2);
+
+  // LƯU FIRESTORE NHƯ CŨ
+  try {
+    await addDoc(collection(db, "quizResults"), {
+      ...currentUser,
+      quizId: QUIZ_ID,
+      score: parseFloat(totalScore.toFixed(2)),
+      totalPossibleScore: 10,
+      timeTaken: timeTakenInSeconds,
+      answers: answersToSaveObj,
+      submittedAt: serverTimestamp()
+    });
+  } catch (error) {
+    console.error("Lỗi khi lưu Firestore: ", error);
+  }
+
+  // === MỚI: GỬI THÊM SANG GOOGLE SHEETS (APPS SCRIPT) ===
+  try {
+    const answersArray = buildAnswersArray(quizData, userAnswers);
+    const body = {
+      quizId: QUIZ_ID,
+      quizName: QUIZ_NAME,
+      studentId: currentUser.studentId,
+      fullname: currentUser.fullname,
+      className: currentUser.className, // CHUẨN HOÁ: dùng className
+      school: currentUser.school,
+      timeTaken: timeTakenInSeconds,
+      score: parseFloat(totalScore.toFixed(2)),
+      answers: answersArray // MẢNG THEO THỨ TỰ CÂU
+    };
+
+    await fetch(GAS_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    // Không cần chờ phản hồi để chặn UI; chỉ log khi cần
+  } catch (err) {
+    console.error("Lỗi gửi Apps Script:", err);
+  }
+});
 
             quizSection.classList.add("hidden");
             resultSection.classList.remove("hidden");
